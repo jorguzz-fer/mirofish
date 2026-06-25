@@ -1,0 +1,24 @@
+# MiroFish — VPS deployment (OpenAI-compatible LLM + host nginx/HTTPS in front).
+#
+# Differences from the upstream docker-compose.yml:
+#   - No Traefik, no external network, no host CLI mounts (uses an API provider).
+#   - App is bound to 127.0.0.1:5001 so ONLY the local nginx can reach it;
+#     the port is not exposed to the public internet directly.
+#
+# Usage:
+#   cp .env.vps.example .env   # then edit .env with your provider key
+#   docker compose -f docker-compose.vps.yml up -d --build
+
+services:
+  mirofish:
+    build: .
+    container_name: mirofish
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      # host:container — bound to loopback; nginx proxies to it.
+      - "127.0.0.1:5001:5001"
+    volumes:
+      - ./backend/uploads:/app/backend/uploads
+      - ./backend/data:/app/backend/data
