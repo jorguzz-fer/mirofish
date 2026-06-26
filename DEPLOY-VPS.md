@@ -140,7 +140,16 @@ successfully"; `python -c "import urllib.request as u; print(u.urlopen('http://1
 returns `200` inside the container) and the proxy labels point at port `5001`,
 but the public URL returns **"no available server"**.
 
-**Most common root cause: the domain is proxied through Cloudflare (orange
+**Check the DNS record FIRST.** The most common cause is the simplest one:
+the domain's **A record points to the wrong IP** (an old server, a typo, or a
+proxy in front). The request never reaches your VPS's Traefik, so there is no
+backend → "no available server", and the ACME challenge below also fails.
+Confirm `dig +short your-domain.com` returns the VPS's **real public IPv4**
+before debugging anything else. (If you run **more than one VPS**, double-check
+the record points to the box that actually runs Coolify/this app — pointing at
+the wrong server is an easy and very common mistake.)
+
+**Second cause: the domain is proxied through Cloudflare (orange
 cloud).** Check the proxy/ACME logs — if you see ACME HTTP-01 challenge
 failures with a `404` from an IP in the `2606:4700::/32` range, that IP is
 **Cloudflare**, not your VPS:
