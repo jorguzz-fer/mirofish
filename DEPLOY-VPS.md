@@ -128,3 +128,55 @@ rebuilds. Back these up.
 OASIS pulls in the full ML stack (PyTorch, scikit-learn). Give the VPS at
 least **2 vCPU / 4 GB RAM** and ~10 GB free disk for the image + data.
 Simulations are CPU- and token-bound; more rounds/agents = more of both.
+
+---
+
+## Troubleshooting
+
+### "no available server" / Traefik can't reach the app (esp. on Coolify)
+
+**Symptom:** the app container is healthy (logs show "Backend started
+successfully"; `python -c "import urllib.request as u; print(u.urlopen('http://127.0.0.1:5001/').status)"`
+returns `200` inside the container) and the proxy labels point at port `5001`,
+but the public URL returns **"no available server"**.
+
+**Most common root cause: the domain is proxied through Cloudflare (orange
+cloud).** Check the proxy/ACME logs — if you see ACME HTTP-01 challenge
+failures with a `404` from an IP in the `2606:4700::/32` range, that IP is
+**Cloudflare**, not your VPS:
+
+```
+ERR Unable to obtain ACME certificate ... Invalid response from
+http://your-domain/.well-known/acme-challenge/...: 404
+... 2606:4700:3034::...   <- Cloudflare IP
+```
+
+What happens: Let's Encrypt's validation request hits Cloudflare → 404 (it
+never reaches Traefik) → no certificate is issued → the HTTPS router has no
+valid TLS → Traefik replies **"no available server"**. The app was never the
+problem; it's DNS.
+
+**Fix (in the Cloudflare dashboard):**
+1. DNS → find the record for the host (e.g. `crowd`).
+2. Switch it from **Proxied (orange 🟠)** to **DNS only (grey ⚪)**.
+3. Ensure it's an **A** record pointing to the VPS **IPv4**. If a proxied
+   **AAAA** (IPv6) record exists, remove it (or point it at the VPS's real
+   IPv6) — otherwise the ACME challenge keeps hitting Cloudflare over v6.
+4. Wait ~2 min, then redeploy / restart the proxy. The cert is issued and the
+   site loads.
+
+To keep Cloudflare proxying afterwards: issue the cert first with grey cloud,
+then re-enable the orange cloud with Cloudflare **SSL/TLS = Full (strict)**.
+
+### Proxy labels still point to the wrong port (3000)
+
+On Coolify, labels are generated when the resource is created (default port
+3000). If you change **Ports Exposes** to `5001` afterwards, the read-only
+labels do **not** auto-update. Click **Save**, then **Reset Labels to
+Defaults**, confirm `loadbalancer.server.port=5001`, and redeploy.
+
+### No external database needed
+
+MiroFish uses **embedded KuzuDB** (files under `backend/data/graphdb`) — there
+is no Postgres/MySQL service to deploy. (The sibling project *BettaFish* is the
+one that needs PostgreSQL; MiroFish does not.)
