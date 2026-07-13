@@ -184,6 +184,27 @@ On Coolify, labels are generated when the resource is created (default port
 labels do **not** auto-update. Click **Save**, then **Reset Labels to
 Defaults**, confirm `loadbalancer.server.port=5001`, and redeploy.
 
+### Simulation killed with "Process exit code: -9" (OOM)
+
+Exit code **-9** is SIGKILL with no Python traceback — the OASIS simulation
+subprocess ran out of memory and was killed. It loads a PyTorch/BERT model
+(`Twitter/twhin-bert-base`) and, by default, runs **both** platforms (Twitter +
+Reddit) in parallel — each loads its own copy of the model (~2 GB each), so
+peak memory roughly doubles. With many agents (50+) the growing per-agent
+history pushes it over the edge.
+
+Fixes, cheapest first:
+1. **Run a single platform** — set env `SIMULATION_PLATFORM=reddit` (or
+   `twitter`). Halves peak memory. No code/UI change needed; redeploy.
+2. **Fewer agents** — a simpler/smaller seed document produces fewer entities →
+   fewer agents. Aim for ~15-25 agents on a small host.
+3. **Raise the memory limit** — Coolify → app → *Resource Limits*; ensure the
+   container isn't capped below what the host can give. Parallel + torch + 50
+   agents wants ~6-8 GB.
+
+`SIMULATION_PLATFORM` (env): overrides the run default of `parallel`. Accepts
+`reddit`, `twitter`, or `parallel`. Unset = `parallel` (original behaviour).
+
 ### No external database needed
 
 MiroFish uses **embedded KuzuDB** (files under `backend/data/graphdb`) — there

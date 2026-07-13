@@ -1060,9 +1060,13 @@ def start_simulation():
             }), 400
 
         session = WorkbenchSession.open(simulation_id=simulation_id, metadata={"entrypoint": "api.simulation.start"})
+        # Platform default can be overridden via SIMULATION_PLATFORM env var
+        # (e.g. 'reddit' or 'twitter') to run a single platform instead of both
+        # in parallel — halves peak memory on RAM-constrained hosts.
+        default_platform = os.environ.get('SIMULATION_PLATFORM', 'parallel')
         result = session.start_simulation_run(
             simulation_id=simulation_id,
-            platform=data.get('platform', 'parallel'),
+            platform=data.get('platform') or default_platform,
             max_rounds=data.get('max_rounds'),
             enable_graph_memory_update=data.get('enable_graph_memory_update', False),
             force=data.get('force', False),
