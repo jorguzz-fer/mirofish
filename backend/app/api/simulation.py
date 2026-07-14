@@ -1065,10 +1065,14 @@ def start_simulation():
         # hardcodes 'parallel'. Running one platform halves peak memory (only one
         # PyTorch/BERT model is loaded) — the fix for OOM (exit -9) on small hosts.
         platform = os.environ.get('SIMULATION_PLATFORM') or data.get('platform') or 'parallel'
+        # When the request doesn't specify max_rounds (the UI's "auto rounds" mode),
+        # fall back to OASIS_DEFAULT_MAX_ROUNDS as a hard cap so an auto-generated
+        # 168-round (7-day) plan doesn't run for hours / burn tokens on small hosts.
+        max_rounds = data.get('max_rounds') or Config.OASIS_DEFAULT_MAX_ROUNDS
         result = session.start_simulation_run(
             simulation_id=simulation_id,
             platform=platform,
-            max_rounds=data.get('max_rounds'),
+            max_rounds=max_rounds,
             enable_graph_memory_update=data.get('enable_graph_memory_update', False),
             force=data.get('force', False),
         )
