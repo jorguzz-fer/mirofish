@@ -1,5 +1,19 @@
 <template>
   <div class="simulation-panel">
+    <!-- Failure alert: shown when the simulation process stops unexpectedly -->
+    <div v-if="runError" class="run-error-banner">
+      <div class="run-error-header">
+        <span class="run-error-icon">⚠️</span>
+        <span class="run-error-title">Simulação interrompida</span>
+      </div>
+      <p class="run-error-reason">{{ runError }}</p>
+      <p class="run-error-hint">
+        Motivo técnico acima. Dica: <code>Process exit code: -9</code> costuma ser
+        falta de memória (rode uma plataforma só via <code>SIMULATION_PLATFORM</code>);
+        erros <code>401</code> indicam chave/endpoint do LLM incorretos.
+      </p>
+    </div>
+
     <!-- Top Control Bar -->
     <div class="control-bar">
       <div class="status-group">
@@ -314,10 +328,11 @@ const router = useRouter()
 
 // State
 const isGeneratingReport = ref(false)
-const phase = ref(0) // 0: not started, 1: running, 2: completed
+const phase = ref(0) // 0: not started, 1: running, 2: completed, 3: failed
 const isStarting = ref(false)
 const isStopping = ref(false)
 const startError = ref(null)
+const runError = ref('') // reason the simulation stopped (from backend runner_status='failed')
 const runStatus = ref({})
 const allActions = ref([]) // all actions (incremental)
 const actionIds = ref(new Set()) // action ID set for dedup
@@ -365,6 +380,7 @@ const addLog = (msg) => {
 // Reset all state (for restarting simulation)
 const resetAllState = () => {
   phase.value = 0
+  runError.value = ''
   runStatus.value = {}
   allActions.value = []
   actionIds.value = new Set()
@@ -515,6 +531,17 @@ const fetchRunStatus = async () => {
       // Detect via twitter_completed and reddit_completed status
       const platformsCompleted = checkPlatformsCompleted(data)
       
+      // Detect failure: the simulation process stopped unexpectedly.
+      // The backend reports runner_status='failed' and the reason in data.error.
+      if (data.runner_status === 'failed') {
+        runError.value = data.error || 'A simulação foi interrompida por um motivo desconhecido.'
+        addLog(`✗ Simulação interrompida: ${runError.value}`)
+        phase.value = 3
+        stopPolling()
+        emit('update-status', 'error')
+        return
+      }
+
       if (isCompleted || platformsCompleted) {
         if (platformsCompleted && !isCompleted) {
           addLog('✓ Todas as simulações de plataforma detectadas como concluídas')
@@ -728,6 +755,43 @@ onUnmounted(() => {
   background: #FFFFFF;
   font-family: 'Space Grotesk', 'Noto Sans SC', system-ui, sans-serif;
   overflow: hidden;
+}
+
+/* --- Failure alert banner --- */
+.run-error-banner {
+  margin: 12px;
+  padding: 14px 16px;
+  border: 1px solid #F5A3A3;
+  border-left: 4px solid #E03131;
+  border-radius: 8px;
+  background: #FFF5F5;
+  color: #7A1B1B;
+}
+.run-error-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 14px;
+}
+.run-error-icon { font-size: 16px; }
+.run-error-reason {
+  margin: 8px 0 6px;
+  font-family: 'SF Mono', ui-monospace, monospace;
+  font-size: 13px;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+.run-error-hint {
+  margin: 0;
+  font-size: 12px;
+  color: #9A4A4A;
+}
+.run-error-hint code {
+  font-family: 'SF Mono', ui-monospace, monospace;
+  background: rgba(224, 49, 49, 0.08);
+  padding: 1px 4px;
+  border-radius: 4px;
 }
 
 /* --- Control Bar --- */
