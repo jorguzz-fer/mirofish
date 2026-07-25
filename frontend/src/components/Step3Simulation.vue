@@ -442,8 +442,11 @@ const doStartSimulation = async () => {
       emit('update-status', 'error')
     }
   } catch (err) {
-    startError.value = err.message
-    addLog(`✗ Erro ao iniciar: ${err.message}`)
+    // Surface the backend's real error (in the response body) instead of axios's
+    // generic "Request failed with status code 400".
+    const backendMsg = err.response?.data?.error || err.message
+    startError.value = backendMsg
+    addLog(`✗ Erro ao iniciar: ${backendMsg}`)
     emit('update-status', 'error')
   } finally {
     isStarting.value = false

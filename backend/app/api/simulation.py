@@ -1089,6 +1089,7 @@ def start_simulation():
         }), 404
 
     except ValueError as e:
+        logger.warning(f"Start simulation rejected (400): {str(e)}")
         return jsonify({
             "success": False,
             "error": str(e)
