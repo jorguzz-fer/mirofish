@@ -631,8 +631,10 @@ class TwitterSimulationRunner:
         start_time = datetime.now()
         
         for round_num in range(total_rounds):
-            # Calculate current simulated time
-            simulated_minutes = round_num * minutes_per_round
+            # Calculate current simulated time. Offset to an active hour (default
+            # 09:00) so short, round-capped runs don't fall entirely in the inactive
+            # small hours and skip every round. Override via SIMULATION_START_HOUR.
+            simulated_minutes = int(os.environ.get('SIMULATION_START_HOUR', '9')) * 60 + round_num * minutes_per_round
             simulated_hour = (simulated_minutes // 60) % 24
             simulated_day = simulated_minutes // (60 * 24) + 1
             
