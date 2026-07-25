@@ -431,6 +431,9 @@ class SimulationRunner:
             env = os.environ.copy()
             env['PYTHONUTF8'] = '1'  # Python 3.7+ support, makes all open() default to UTF-8
             env['PYTHONIOENCODING'] = 'utf-8'  # Ensure stdout/stderr use UTF-8
+            env['PYTHONUNBUFFERED'] = '1'  # Flush subprocess stdout/stderr immediately so
+                                           # simulation.log reflects live progress and any
+                                           # hang/traceback is visible instead of buffered away
             
             # Set working directory to simulation directory (databases and other files are generated here)
             # Use start_new_session=True to create a new process group, ensuring all child processes can be terminated via os.killpg
